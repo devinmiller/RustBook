@@ -11,13 +11,20 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
+    pub fn new<I>(mut args: I) -> Result<Config, &'static str>
+        where I: Iterator<Item=String> {
+        // skip executable name
+        args.next();
 
-        let query = args[1].clone();
-        let filename = args[2].clone();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query string"),
+        };
+
+        let filename = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a file name"),
+        };
 
         let case_sensitive = env::var("CASE_SENSITIVE").is_err();
 
@@ -42,15 +49,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 }
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    let mut results = Vec::new();
-
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    }
-
-    results
+    contents.lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
@@ -71,12 +72,29 @@ mod test {
     use super::*;
 
     #[test]
-    fn no_arguments() {
-        let args = Vec::new();
-        let config = Config::new(&args);
+    fn no_query_argument() {
+        let args = vec![
+            String::from("file/name/here.exe")
+        ];
+
+        let config = Config::new(args.into_iter());
 
         assert_eq!(config.is_err(), true);
-        assert_eq!(config.err(), Some("not enough arguments"));
+        assert_eq!(config.err(), Some("Didn\'t get a query string"));
+    }
+
+    #[test]
+    fn no_file_name_argument() {
+        let args = vec![
+            String::from("file/name/here.exe"),
+            String::from("emperor"), 
+
+        ];
+
+        let config = Config::new(args.into_iter());
+
+        assert_eq!(config.is_err(), true);
+        assert_eq!(config.err(), Some("Didn\'t get a file name"));
     }
 
     #[test]
@@ -87,7 +105,7 @@ mod test {
             String::from("warhammer.txt")
         ];
 
-        let config = Config::new(&args)
+        let config = Config::new(args.into_iter())
             .expect("Error creating Config for test");
 
         assert_eq!(config.query, "emperor");

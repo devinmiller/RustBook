@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 
+#[derive(Debug)]
 struct Cacher<T>
     where T: Fn(u32) -> u32
 {
@@ -22,18 +23,9 @@ impl<T> Cacher<T>
     }
 
     fn value(&mut self, arg: u32) -> u32 {
-        
-        let value = self.memoized_values.get(&arg).cloned();
-
-        if value.is_none() {
-            let v = (self.calculation)(arg);
-
-            self.memoized_values.insert(arg, v);
-
-            return v
-        }
-
-        value.unwrap()
+        *self.memoized_values
+            .entry(arg)
+            .or_insert((self.calculation)(arg))
     }
 }
 
@@ -50,7 +42,9 @@ fn main() {
     generate_workout(
         simulated_user_specificied_value,
         simulated_random_number
-    ) ;
+    );
+
+    
 }
 
 fn generate_workout(intensity: u32, random_number: u32) {
